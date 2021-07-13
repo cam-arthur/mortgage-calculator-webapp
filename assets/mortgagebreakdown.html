@@ -1,0 +1,355 @@
+<html>
+  <head>
+    <link rel="stylesheet" href="mystyle.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.3.0/dist/chart.min.js"></script>
+    <title>Mortgage Calculator</title>
+  </head>
+  <body>
+    <div id="inputSpace">
+        <form>
+            <b>Mortgage Amount: $</b><input type="number" id="mortgage" name="mortgage" value="500000">
+            <b>Interest Rate </b><input type="number" id="interestRate" name="interestRate" step="any" value="2.49">% p.a.   
+            <b>Interest Rate Growth</b><input type="number" id="interestRateGrowth" name="interestRateGrowth" step="any" value="0">% p.a.</br>
+            <b>Repayment Amount: $</b><input type="number" id="repayment" name="repayment" value="1000">
+            <b>Repayment Period: </b><input type="number" id="repaymentDays" name="repaymentDays" value="15"> Days</br>
+            <b>Calculation Name </b><input type="text" id="graphName" name="graphName" value="My Mortgage"></br>
+          </form>
+          <div id="voluntaryToggleSpace">
+            <b>Are you making voluntary repayments?</b></br>
+            <button id="voluntaryShow" onclick="showVoluntaryPayments()">Yes</button>
+            <button id="voluntaryHide" onclick="hideVoluntaryPayments()">No</button>
+          </div>
+          <div id="voluntaryPaymentsSpace">
+            <form>
+                <b>Monthly: $</b><input type="number" id="voluntaryMonthly" name="voluntaryMonthly" value="0">
+                <b>Fortnightly: $</b><input type="number" id="voluntaryFornightly" name="voluntaryFornightly" value="0"></br>
+                <b>Weekly: $</b><input type="number" id="voluntaryWeekly" name="voluntaryWeekly" value="0">
+                <b>Daily: $</b><input type="number" id="voluntaryDaily" name="voluntaryDaily" value="0"></br>
+            </form>
+            <b>Are you making a lump sum repayment?</b></br>
+            <button id="lumpSumShow" onclick="showLumpSumPayments()">Yes</button>
+            <button id="lumpSumHide" onclick="hideLumpSumPayments()">No</button>
+            <form id="lumpSumPaymentsSpace">
+                <b>Lump Sum Amount: $</b><input type="number" id="lumpSumAmount" name="lumpSumAmount" value="0"></br>
+                <b>What day of the year will this be paid?</b><input type="number" id="lumpSumDay" name="lumpSumDay" value="0"></br>
+                <b>Will this occur each year?</b><input type="checkbox" id="repeatLumpSum" name="repeatLumpSum">
+            </form>
+          </div>
+
+    </div>
+    <button id="calculateGraphs" onclick="calculateGraphs()">Run Mortgage Calculations</button>
+    <button id="showGraphs" onclick="showGraphs()">Show All Graphs</button>
+    <button id="hideGraphs" onclick="hideGraphs()">Hide All Graphs</button>
+    <button id="clearGraphs" onclick="clearAllGraphs()">Clear All Graphs</button>
+    <div id="chartMainSpace">
+        <div>
+        <div style="display:inline-block;height:50%;width:33%"><canvas id="mortgageGraph"></canvas></div>
+        <div style="display:inline-block;height:50%;width:33%"><canvas id="ytdInterestGraph"></canvas></div>
+        <div style="display:inline-block;height:50%;width:33%"><canvas id="totalInterestGraph"></canvas></div>
+        </div>
+        <div>
+            <div style="display:inline-block;height:50%;width:33%"><canvas id="ytdRepaidGraph"></canvas></div>
+            <div style="display:inline-block;height:50%;width:33%"><canvas id="totalRepaidGraph"></canvas></div>
+            <div style="display:inline-block;height:50%;width:33%"><canvas id="mandatoryGraph"></canvas></div>
+        </div>
+    </div>
+    <div id="optionTableSpace"></div>
+    <script>
+    document.getElementById("chartMainSpace").style.display = "none";
+    document.getElementById("hideGraphs").style.display = "none";
+    document.getElementById("showGraphs").style.display = "none";
+    document.getElementById("voluntaryPaymentsSpace").style.display = "none";
+    document.getElementById("voluntaryHide").style.display = "none";
+    document.getElementById("lumpSumHide").style.display = "none";
+    document.getElementById("lumpSumPaymentsSpace").style.display = "none";
+    document.getElementById("optionTableSpace").style.display = "none";
+    
+    async function drawSampleData(url, colour, lineName) {
+        const response = await fetch(url);
+        return addNewData(await response.json(), colour, lineName);
+    }
+
+    async function getMortgageData(url, colour, lineName, dataToSend){
+        const response = await fetch(url, {
+            method: "post",
+            headers: { "Content-Type": "application/json" },
+            body: dataToSend
+        });
+        return addNewData(await response.json(), colour, lineName);
+    }
+
+    function addNewData(jsondata, colour, lineName){
+        // console.log(jsondata)
+        var labels = jsondata.results.map(function(e) {
+            return "Year " + e.year;
+        });
+        var mortgageData = jsondata.results.map(function(e) {
+            return Number.parseFloat(e.mortgageamount).toFixed(2);
+        });
+        var ytdInterestData = jsondata.results.map(function(e) {
+            return Number.parseFloat(e.totalinterestyear).toFixed(2);
+        });
+        var totalInterestData = jsondata.results.map(function(e) {
+            return Number.parseFloat(e.totalinterestlife).toFixed(2);
+        });
+        var ytdRepaidData = jsondata.results.map(function(e) {
+            return Number.parseFloat(e.totalrepaidyear).toFixed(2);
+        });
+        var totalRepaidData = jsondata.results.map(function(e) {
+            return Number.parseFloat(e.totalrepaidlife).toFixed(2);
+        });
+        var mandatoryData = jsondata.results.map(function(e) {
+            return Number.parseFloat(e.mandatorypaymentsmade).toFixed(2);
+        });
+        addData(mortgageChart, labels, mortgageData, lineName, colour)
+        addData(ytdInterestGraph, labels, ytdInterestData, lineName, colour)
+        addData(totalInterestGraph, labels, totalInterestData, lineName, colour)
+        addData(ytdRepaidGraph, labels, ytdRepaidData, lineName, colour)
+        addData(totalRepaidGraph, labels, totalRepaidData, lineName, colour)
+        addData(mandatoryGraph, labels, mandatoryData, lineName, colour)
+    }
+
+    function drawAllGraphs() {
+        var mortgageChart = drawGraph("Mortgage Remaining", 'mortgageGraph')
+        var ytdInterestGraph = drawGraph("Total Interest - Year", 'ytdInterestGraph')
+        var totalInterestGraph = drawGraph("Total Interest - Life", 'totalInterestGraph')
+        var ytdRepaidGraph = drawGraph("Total Repaid - Year", 'ytdRepaidGraph')
+        var totalRepaidGraph = drawGraph("Total Repaid - Life", 'totalRepaidGraph')
+        var mandatoryGraph =  drawGraph("Total Mandatory Payments", 'mandatoryGraph')
+        return [mortgageChart, ytdInterestGraph,totalInterestGraph, ytdRepaidGraph, totalRepaidGraph, mandatoryGraph]
+    }
+    function addData(chart, labels, data, label, colour) {
+        var newDataset = {
+            label: label,
+            backgroundColor: colour,
+            borderColor: colour,
+            // strokeColor: "rgba(151,187,205,1)",
+            // pointColor: "rgba(151,187,205,1)",
+            // pointStrokeColor: "#fff",
+            // pointHighlightFill: "#fff",
+            // pointHighlightStroke: "rgba(151,187,205,1)",
+            data: data
+        };
+        if (chart.data.labels.length){
+            if (chart.data.labels.length <= labels.length){
+                chart.data.labels = labels
+            }
+            chart.data.datasets.push(newDataset);
+        }else{
+            chart.data.labels = labels
+            chart.data.datasets[0] = newDataset
+        }
+        // console.log(newDataset)
+        chart.update();
+    }
+    function drawGraph(name, element) {
+
+        var ctx = document.getElementById(element).getContext('2d');
+        var myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: "",
+                datasets: [{
+                    label: "",
+                    data: "",
+                    backgroundColor: ""
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: name
+                    },
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+        return myChart;
+    }
+
+    function createOptionTable() {
+        var newTable = document.createElement('table');
+        newTable.style.width  = '100px';
+        newTable.style.border = '1px solid black';
+        newTable.id = "optionTable"
+        populateDefaultOptionTable(newTable);
+    }
+
+    function populateDefaultOptionTable(optionTable) {
+        var drawSpace = document.getElementById("optionTableSpace");
+        for(var i = 0; i < tableHeaders.length; i++){
+            var tr = optionTable.insertRow();
+            var th = document.createElement('th');
+
+            //var th = tr.insertCell();
+            th.appendChild(document.createTextNode(tableHeaders[i]));
+            th.style.border = '1px solid black';
+            tr.appendChild(th);
+            //var td = tr.insertCell();
+            //td.appendChild(document.createTextNode('Cell'));
+            //td.style.border = '1px solid black';
+        }
+        drawSpace.appendChild(optionTable);
+    }
+
+    function addTableColumn(table, data, colour){
+        for(var i = 0; i < data.length; i++){
+            var td = table.rows[i].insertCell();
+            td.style.border = '1px solid black';// + colour;
+            //td.style.background = colour;
+            td.appendChild(document.createTextNode(data[i]));
+            if (i==0){
+                var colouredBox = document.createElement('div');
+                colouredBox.classList.add('colouredBox');
+                colouredBox.style.background = colour;
+                // var text = document.createTextNode('');
+                // colouredBox.appendChild(text);
+                td.appendChild(colouredBox);
+            }
+        }
+    }
+
+    function clearOptionTable() {
+        var optionTable = document.getElementById("optionTable");
+        if (optionTable) {
+            optionTable.innerHTML = "";
+            populateDefaultOptionTable(optionTable);
+        }
+    }
+
+    function hideGraphs(){
+        document.getElementById("showGraphs").style.display = "block";
+        document.getElementById("hideGraphs").style.display = "none";
+        document.getElementById("chartMainSpace").style.display = "none";
+    }
+    function showGraphs(){
+        document.getElementById("showGraphs").style.display = "none";
+        document.getElementById("hideGraphs").style.display = "block";
+        document.getElementById("chartMainSpace").style.display = "block";
+    }
+
+    function showVoluntaryPayments() {
+        document.getElementById("voluntaryPaymentsSpace").style.display = "block";
+        document.getElementById("voluntaryShow").style.display = "none";
+        document.getElementById("voluntaryHide").style.display = "block";
+        document.getElementById("lumpSumShow").style.display = "block";
+    }
+    function hideVoluntaryPayments() {
+        document.getElementById("voluntaryPaymentsSpace").style.display = "none";
+        document.getElementById("lumpSumPaymentsSpace").style.display = "none";
+        document.getElementById("voluntaryShow").style.display = "block";
+        document.getElementById("voluntaryHide").style.display = "none";
+        document.getElementById("lumpSumShow").style.display = "none";
+        document.getElementById("lumpSumHide").style.display = "none";
+        document.getElementById("voluntaryMonthly").value = 0;
+        document.getElementById("voluntaryFornightly").value= 0;
+        document.getElementById("voluntaryWeekly").value= 0;
+        document.getElementById("voluntaryDaily").value= 0;
+        document.getElementById("lumpSumAmount").value= 0;
+        document.getElementById("lumpSumDay").value= 0;
+    }
+    function showLumpSumPayments() {
+        document.getElementById("lumpSumPaymentsSpace").style.display = "block";
+        document.getElementById("lumpSumShow").style.display = "none";
+        document.getElementById("lumpSumHide").style.display = "block";
+    }
+    function hideLumpSumPayments() {
+        document.getElementById("lumpSumPaymentsSpace").style.display = "none";
+        document.getElementById("lumpSumShow").style.display = "block";
+        document.getElementById("lumpSumHide").style.display = "none";
+        document.getElementById("lumpSumAmount").value= 0;
+        document.getElementById("lumpSumDay").value= 0;
+    }
+
+    function generateRandomColour(){
+        return 'rgba(' + Math.floor(Math.random() * 256) + ', ' + Math.floor(Math.random() * 256) + "," + Math.floor(Math.random() * 256) + "," + Math.floor(Math.random() * 256) +')'
+    }
+
+    // <b>Lump Sum Amount: $</b><input type="number" id="lumpSumAmount" name="lumpSumAmount" value="0"></br>
+    //             <b>What day of the year will this be paid?</b><input type="number" id="lumpSumDay" name="lumpSumDay" value="0"></br>
+    //             <b>Will this occur each year?</b><input type="checkbox" id="repeatLumpSum" name="repeatLumpSum">
+
+    function calculateGraphs(){
+        var mortgage = document.getElementById("mortgage").value;
+        var interestRate = document.getElementById("interestRate").value;
+        var repayment = document.getElementById("repayment").value;
+        var repaymentPeriod = document.getElementById("repaymentDays").value;
+        var voluntaryMonthly = document.getElementById("voluntaryMonthly").value;
+        var voluntaryFornightly = document.getElementById("voluntaryFornightly").value;
+        var voluntaryWeekly = document.getElementById("voluntaryWeekly").value;
+        var voluntaryDaily = document.getElementById("voluntaryDaily").value; 
+        var interestRateGrowth = document.getElementById("interestRateGrowth").value;  
+        var lumpSumAmount = document.getElementById("lumpSumAmount").value; 
+        var lumpSumDay = document.getElementById("lumpSumDay").value; 
+        var repeatLumpSum = document.getElementById("repeatLumpSum").checked;   
+        var name = document.getElementById("graphName").value;
+        const dataToSend = JSON.stringify(
+            {"Mortgage":parseInt(mortgage),
+            "InterestRate":parseFloat(interestRate),
+            "Repayment":parseFloat(repayment),
+            "VoluntaryMonthly":parseFloat(voluntaryMonthly),
+            "VoluntaryFortnightly":parseFloat(voluntaryFornightly),
+            "VoluntaryWeekly":parseFloat(voluntaryWeekly),
+            "VoluntaryDaily":parseFloat(voluntaryDaily),
+            "LumpSum":parseFloat(lumpSumAmount),
+            "LumpSumPayday":parseInt(lumpSumDay),
+            "LumpSumYearly":repeatLumpSum,
+            "RepaymentDays":parseInt(repaymentPeriod),
+            "IdealYears":100,
+            "DaysInYear":365,
+            "InterestRateYearlyChange":parseFloat(interestRateGrowth)})
+        var colour = generateRandomColour();
+        getMortgageData("/getmortgagestats", colour , name, dataToSend);
+        showGraphs();
+        document.getElementById("optionTableSpace").style.display = "block";
+        var voluntaryYes = (parseFloat(voluntaryMonthly) +  parseFloat(voluntaryFornightly) + parseFloat(voluntaryWeekly) + parseFloat(voluntaryDaily)) > 0
+        var voluntaryString = "$" + voluntaryMonthly + " | $" + voluntaryFornightly + " | $" + voluntaryWeekly + " | $" + voluntaryDaily
+        addTableColumn(optionTable, [name, "$" + mortgage, interestRate + "% + " + interestRateGrowth + "% p.a.", "$" + repayment + " every " + repaymentPeriod + " days", voluntaryYes, voluntaryString, "$" + lumpSumAmount, "Day " + lumpSumDay, repeatLumpSum], colour);
+    }
+
+    function clearAllGraphs(){
+        clearGraph(mortgageChart);
+        clearGraph(ytdInterestGraph);
+        clearGraph(totalInterestGraph);
+        clearGraph(ytdRepaidGraph);
+        clearGraph(totalRepaidGraph);
+        clearGraph(mandatoryGraph);
+        updateAllGraphs();
+        document.getElementById("optionTableSpace").style.display = "none";
+        clearOptionTable();
+    }
+
+    function clearGraph(chart){
+        chart.data.labels = ""
+        var clearData =  [{
+                    label: "",
+                    data: "",
+                    backgroundColor: ""
+                }]
+        chart.data.datasets = clearData
+    }
+
+    function updateAllGraphs(){
+        mortgageChart.update();
+        ytdInterestGraph.update();
+        totalInterestGraph.update();
+        ytdRepaidGraph.update();
+        totalRepaidGraph.update();
+        mandatoryGraph.update();
+    }
+
+    const [mortgageChart, ytdInterestGraph,totalInterestGraph, ytdRepaidGraph, totalRepaidGraph, mandatoryGraph] = drawAllGraphs()//drawSampleData("/getsampledata");
+    const tableHeaders = ["Calculation Name", "Mortgage Amount", "Interest Rate + Growth", "Repayment Amount + Period", "Voluntary Payments?", "Monthly | Fortnightly | Weekly | Daily", "Lump Sum Amount", "Day Lump Sum is paid", "Recurring"]
+    createOptionTable();
+    // const dataToSend = JSON.stringify({"Mortgage":230000,"InterestRate":2.49,"Repayment":908,"VoluntaryMonthly":0,"VoluntaryFortnightly":0,"VoluntaryWeekly":0,"VoluntaryDaily":0,"LumpSum":0,"LumpSumPayday":0,"RepaymentDays":30,"IdealYears":100,"DaysInYear":365,"InterestRateYearlyChange":0})
+    // drawSampleData("/getsampledatafastrepayment", mortgageChart, ytdInterestGraph,totalInterestGraph, ytdRepaidGraph, totalRepaidGraph, mandatoryGraph, 'rgba(153, 102, 255, 1)', "Mandatory Fortnightly $454 + weekly $250/Daily $5")
+    // drawSampleData("/getsampledatastandardrepayment", mortgageChart, ytdInterestGraph,totalInterestGraph, ytdRepaidGraph, totalRepaidGraph, mandatoryGraph, 'rgba(9, 235, 54, 1)', "Mandatory Fortnightly $454")
+    // getMortgageData("/getmortgagestats", mortgageChart, ytdInterestGraph,totalInterestGraph, ytdRepaidGraph, totalRepaidGraph, mandatoryGraph, 'rgba(99, 235, 54, 99)', "Mandatory Monthly $908", dataToSend)
+    </script>
+  </body>
+</html>
